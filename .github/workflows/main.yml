@@ -17,75 +17,45 @@ jobs:
         shell: pwsh
 
     steps:
-      # -------------------------------------------------
       # 1. Checkout repository
-      # -------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-          ref: ${{ github.ref }}
 
-      # -------------------------------------------------
-      # 2. Cache Conda (Windows)
-      # -------------------------------------------------
-      - name: Cache Conda
-        uses: actions/cache@v4
-        with:
-          path: |
-            C:\Miniconda3\pkgs
-            C:\Miniconda3\envs\stock-lstm-env
-          key: ${{ runner.os }}-conda-${{ hashFiles('environment.yml') }}-v2
-          restore-keys: |
-            ${{ runner.os }}-conda-
-
-      # -------------------------------------------------
-      # 3. Setup Miniconda with mamba
-      # -------------------------------------------------
-      - name: Setup Miniconda (mamba)
+      # 2. Setup Miniconda with mamba (simplified approach)
+      - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v3
         with:
-          activate-environment: stock-lstm-env
-          environment-file: environment.yml
-          use-mamba: true
-          channel-priority: strict
-          auto-update-conda: true
           miniconda-version: "latest"
-          shell: powershell
-          install-location: "C:\\Miniconda3"
-          auto-activate-base: false
+          auto-update-conda: true
+          python-version: "3.9"
+          channels: conda-forge,defaults
 
-      # -------------------------------------------------
-      # 4. Debug / Verify Conda installation
-      # -------------------------------------------------
-      - name: Verify Conda installation
+      # 3. Create and activate environment
+      - name: Create conda environment
         run: |
-          echo "Conda info:"
-          conda info
-          echo "Available environments:"
-          conda env list
-          echo "Listing key packages:"
-          conda list | Select-String -Pattern "(python|tensorflow|yfinance|pandas)"
+          conda env create -f environment.yml
+          conda activate stock-lstm-env
 
-      # -------------------------------------------------
+      # 4. Debug environment
+      - name: Verify installation
+        run: |
+          conda info
+          conda env list
+          conda list --name stock-lstm-env
+
       # 5. Run prediction script
-      # -------------------------------------------------
       - name: Run prediction
         run: |
-          echo "Running AMZN prediction..."
+          conda activate stock-lstm-env
           python predict_amzn_next_day.py
 
-      # -------------------------------------------------
-      # 6. Commit and push updated CSV
-      # -------------------------------------------------
+      # 6. Commit and push
       - name: Commit & push CSV
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
           git add lstmPrediction.csv
-          git commit -m "Update AMZN prediction [skip ci]" || echo "Nothing to commit"
-          git push origin HEAD:${{ github.ref_name }} || echo "Push not needed"
+          git commit -m "Update AMZN prediction [skip ci]" || echo "No changes to commit"
+          git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
