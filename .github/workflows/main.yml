@@ -12,14 +12,13 @@ jobs:
     permissions:
       contents: write
 
-    # PowerShell is the native shell on Windows → conda.bat works
     defaults:
       run:
         shell: pwsh
 
     steps:
       # -------------------------------------------------
-      # 1. Checkout
+      # 1. Checkout repository
       # -------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,7 +28,7 @@ jobs:
           ref: ${{ github.ref }}
 
       # -------------------------------------------------
-      # 2. Cache Conda (correct Windows paths)
+      # 2. Cache Conda (Windows)
       # -------------------------------------------------
       - name: Cache Conda
         uses: actions/cache@v4
@@ -37,12 +36,12 @@ jobs:
           path: |
             C:\Miniconda3\pkgs
             C:\Miniconda3\envs\stock-lstm-env
-          key: ${{ runner.os }}-conda-${{ hashFiles('environment.yml') }}-v1
+          key: ${{ runner.os }}-conda-${{ hashFiles('environment.yml') }}-v2
           restore-keys: |
             ${{ runner.os }}-conda-
 
       # -------------------------------------------------
-      # 3. Install Miniconda + mamba + env
+      # 3. Setup Miniconda with mamba
       # -------------------------------------------------
       - name: Setup Miniconda (mamba)
         uses: conda-incubator/setup-miniconda@v3
@@ -51,15 +50,22 @@ jobs:
           environment-file: environment.yml
           use-mamba: true
           channel-priority: strict
-          auto-update-conda: true          # keep base conda fresh
+          auto-update-conda: true
           miniconda-version: "latest"
+          shell: powershell
+          install-location: "C:\\Miniconda3"
+          auto-activate-base: false
 
       # -------------------------------------------------
-      # 4. Verify environment
+      # 4. Debug / Verify Conda installation
       # -------------------------------------------------
-      - name: Verify env
+      - name: Verify Conda installation
         run: |
+          echo "Conda info:"
           conda info
+          echo "Available environments:"
+          conda env list
+          echo "Listing key packages:"
           conda list | Select-String -Pattern "(python|tensorflow|yfinance|pandas)"
 
       # -------------------------------------------------
@@ -67,10 +73,11 @@ jobs:
       # -------------------------------------------------
       - name: Run prediction
         run: |
-          python predict_amzn_next_day.py   # <-- your script
+          echo "Running AMZN prediction..."
+          python predict_amzn_next_day.py
 
       # -------------------------------------------------
-      # 6. Append to CSV + commit & push
+      # 6. Commit and push updated CSV
       # -------------------------------------------------
       - name: Commit & push CSV
         run: |
