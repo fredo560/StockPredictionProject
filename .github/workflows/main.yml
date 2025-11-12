@@ -2,7 +2,7 @@ name: Daily AMZN Prediction
 
 on:
   schedule:
-    - cron: '10 22 * * *'  # Every day at 22:10 UTC
+    - cron: '10 22 * * *'   # 22:10 UTC every day
   workflow_dispatch:
 
 jobs:
@@ -11,11 +11,16 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+
     defaults:
       run:
-        shell: bash -l {0}  # Ensures conda env is activated
+        # PowerShell is the native shell on Windows runners
+        shell: pwsh
 
     steps:
+      # -------------------------------------------------
+      # 1. Checkout
+      # -------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -23,47 +28,57 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.ref }}
 
-      - name: Cache Conda environment
+      # -------------------------------------------------
+      # 2. Cache Conda packages & env (Windows paths)
+      # -------------------------------------------------
+      - name: Cache Conda
         uses: actions/cache@v4
         with:
           path: |
-            C:\Users\runneradmin\conda_pkgs_dir
-            C:\Users\runneradmin\miniconda3\pkgs
-            C:\Users\runneradmin\miniconda3\envs\stock-lstm-env
+            C:\Miniconda3\pkgs
+            C:\Miniconda3\envs\stock-lstm-env
           key: ${{ runner.os }}-conda-${{ hashFiles('environment.yml') }}-v1
           restore-keys: |
             ${{ runner.os }}-conda-
-        env:
-          CACHE_NUMBER: 0
 
-      - name: Set up Conda with Mamba
+      # -------------------------------------------------
+      # 3. Install Miniconda + mamba + env
+      # -------------------------------------------------
+      - name: Setup Miniconda (mamba)
         uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: stock-lstm-env
           environment-file: environment.yml
           use-mamba: true
-          clean-package-cache: false
           channel-priority: strict
-          use-only-tar-bz2: true
-          auto-update-conda: false
-          auto-activate-base: false
+          auto-update-conda: true
+          miniconda-version: "latest"
 
-      - name: Verify environment
+      # -------------------------------------------------
+      # 4. Verify the environment
+      # -------------------------------------------------
+      - name: Verify env
         run: |
           conda info
-          conda list | grep -E "(python|tensorflow|yfinance|pandas)"
+          conda list | Select-String -Pattern "(python|tensorflow|yfinance|pandas)"
 
-      - name: Run AMZN Prediction
+      # -------------------------------------------------
+      # 5. Run the prediction script
+      # -------------------------------------------------
+      - name: Run prediction
         run: |
-          python predict_amzn_next_day.py
+          python predict_amzn_clean.py   # <-- your script name
 
-      - name: Commit and push updated CSV
+      # -------------------------------------------------
+      # 6. Commit & push updated CSV
+      # -------------------------------------------------
+      - name: Commit & push CSV
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           git add lstmPrediction.csv
-          git commit -m "Update AMZN prediction [skip ci]" || echo "No changes to commit"
-          git push origin HEAD:${{ github.ref_name }} || echo "No push needed"
+          git commit -m "Update AMZN prediction [skip ci]" || echo "Nothing to commit"
+          git push origin HEAD:${{ github.ref_name }} || echo "Push not needed"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
