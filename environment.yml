@@ -13,5 +13,3 @@ dependencies:
   - yfinance>=0.2.40
   - tensorflow>=2.15
   - keras>=3.0
-  - pip:
-      - --upgrade pip
