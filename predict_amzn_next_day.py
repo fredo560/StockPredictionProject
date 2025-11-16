@@ -18,7 +18,7 @@ end_date   = datetime.today().strftime('%Y-%m-%d')
 start_date = (datetime.today() - timedelta(days=70)).strftime('%Y-%m-%d')
 
 time.sleep(5)
-df = yf.download(ticker, start=start_date, end=end_date, progress=False)
+df = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=True)
 print(df.head())
 
 # ================================
@@ -190,4 +190,5 @@ else:
     pred_df.to_csv(csv_file, mode='w', header=True, index=False)
 
     print(f"\nCreated and saved: {csv_file}")
+
 
