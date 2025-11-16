@@ -8,22 +8,80 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from datetime import datetime, timedelta
 import time
+import os
+import hashlib
+import requests
+
+TICKER      = "AMZN"
+SEQ_LENGTH  = 20
+MIN_DAYS    = 60
+CACHE_DIR   = ".yf_cache"          # persisted across workflow runs
+MAX_RETRIES = 7                    # exponential back-off → up to ~2 min
+BASE_DELAY  = 5                    # seconds
 
 # ================================
 # 1. DOWNLOAD DATA FROM YFINANCE
 # ================================
+session = requests.Session()
+session.headers.update({
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/129.0.0.0 Safari/537.36"
+    )
+})
+
+def _cache_key(ticker, start, end):
+    s = f"{ticker}_{start}_{end}"
+    return os.path.join(CACHE_DIR, hashlib.md5(s.encode()).hexdigest() + ".pkl")
+
+def download_with_cache(ticker, start, end):
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    key = _cache_key(ticker, start, end)
+
+    # 1. Return cached file if fresh (< 6 h)
+    if os.path.exists(key):
+        age = time.time() - os.path.getmtime(key)
+        if age < 6 * 3600:
+            return pd.read_pickle(key)
+
+    # 2. Download with retry
+    for attempt in range(MAX_RETRIES):
+        try:
+            print(f"Downloading {ticker} [{start} → {end}] – attempt {attempt+1}/{MAX_RETRIES}")
+            df = yf.download(
+                ticker,
+                start=start,
+                end=end,
+                progress=False,
+                auto_adjust=True,
+                session=session,          # <-- polite session
+                threads=False             # single-thread avoids internal race
+            )
+            if df is not None and not df.empty and len(df) > 10:
+                df.to_pickle(key)     # cache for next run
+                print(f"Success – {len(df)} rows (cached)")
+                return df
+        except Exception as e:
+            print(f"Download error: {e}")
+
+        # exponential back-off + jitter
+        wait = BASE_DELAY * (2 ** attempt) + np.random.uniform(0, 2)
+        print(f"Rate-limited / error. Sleeping {wait:.1f}s …")
+        time.sleep(wait)
+
+    raise RuntimeError("All download attempts failed – aborting workflow.")
+
+
+
 print("Downloading AMZN data from yfinance...")
 ticker = "AMZN"
 end_date   = datetime.today().strftime('%Y-%m-%d')
 start_date = (datetime.today() - timedelta(days=70)).strftime('%Y-%m-%d')
 
 time.sleep(5)
-try:
-    df = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=True)
-except Exception as e:
-    time.sleep(15)
-    df = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=True)
-
+df = download_with_cache(TICKER, start_date, end_date)
+df = df.reset_index()
 print(df.head())
 
 # ================================
@@ -195,6 +253,7 @@ else:
     pred_df.to_csv(csv_file, mode='w', header=True, index=False)
 
     print(f"\nCreated and saved: {csv_file}")
+
 
 
 
