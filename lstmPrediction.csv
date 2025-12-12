@@ -7,3 +7,4 @@ Date,Ticker,Last_Close,Predicted_Next_Close,Predicted_Change_$,Predicted_Change_
 2025-12-03,AMZN,235.01,239.33,4.32,1.84
 2025-12-06,AMZN,230.32,228.83,-1.49,-0.65
 2025-12-10,AMZN,226.84,224.19,-2.65,-1.17
+2025-12-12,AMZN,230.71,227.77,-2.94,-1.28
