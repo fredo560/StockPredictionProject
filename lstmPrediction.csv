@@ -126,3 +126,4 @@ Date,Ticker,Last_Close,Predicted_Next_Close,Predicted_Change_$,Predicted_Change_
 2026-09-12,AMZN,254.09,253.94,-0.15,-0.06
 2026-09-15,AMZN,253.15,255.44,2.29,0.91
 2026-09-16,AMZN,252.24,257.44,5.2,2.06
+2026-09-17,AMZN,248.1,254.26,6.16,2.48
